@@ -1,0 +1,407 @@
+<template>
+  <div class="q-pa-md">
+    <div class="q-pa-md">
+      <q-btn
+        class="glossy"
+        rounded
+        color="blue-6"
+        label="Nuevo Pedido"
+        @click="nuevoPedido = true"
+      />
+    </div>
+
+    <q-table
+      title="PEDIDOS DE LOS CLIENTES C"
+      :rows="rows"
+      :columns="columns"
+      row-key="name"
+      flat
+      bordered
+      :loading="loading"
+      virtual-scroll
+      :virtual-scroll-item-size="48"
+      :virtual-scroll-sticky-size-start="48"
+      :rows-per-page-options="[0]"
+      @virtual-scroll="onScroll"
+      @row-dblclick="onRowClick"
+    >
+      <template>
+        <q-btn
+          @click="invoice_dialog = true"
+          outline
+          color="primary"
+          label="Insertar New"
+          class="q-mr-xs"
+        >
+          <q-tooltip v-close-popup>Soy el boton de nuevo </q-tooltip>
+        </q-btn>
+
+        <q-input
+          outlined
+          dense
+          debounce="300"
+          v-model="filter"
+          placeholder="Search"
+        >
+          <template v-slot:append>
+            <q-icon name="search" />
+          </template>
+        </q-input>
+
+        <q-btn flat round dense>
+          <q-tooltip v-close-popup>Este mensaje del popup </q-tooltip>
+        </q-btn>
+
+        <q-btn
+          color="primary"
+          icon-right="archive"
+          label="Export to csv"
+          no-caps
+        />
+      </template>
+
+      <template v-slot:body-cell-invoice_id="props">
+        <q-td :props="props">
+          <q-chip
+            color="green"
+            text-color="white"
+            dense
+            class="text-weight-bolder"
+            square
+            style="width: 85px"
+            clickable
+            @click="onNumero(props.row, props.rowIndex)"
+            >{{ props.row.pedido_id }}
+          </q-chip>
+        </q-td>
+      </template>
+    </q-table>
+    <div>
+      <button @click="addData">Agregar</button>
+    </div>
+  </div>
+
+  <!-- cuerpo del pedido -->
+
+  <q-dialog v-model="nuevoPedido">
+    <q-card class="cuerpo-pedido">
+      <q-bar color="blue-6" class="q-pa-md bg-secondary text-white">
+        <q-icon name="laptop_chromebook" />
+        <div>Inclusion de Pedido</div>
+
+        <q-space />
+
+        <q-btn flat icon="close" v-close-popup />
+      </q-bar>
+
+      <q-card-section>
+        <EncabezadoPedido />
+        <RenglonesPedido />
+      </q-card-section>
+
+      <q-card-actions align="right">
+        <q-btn
+          flat
+          label="ADD Pedido"
+          color="primary"
+          @click="addData"
+          v-close-popup
+        />
+      </q-card-actions>
+    </q-card>
+  </q-dialog>
+
+  <q-dialog v-model="alert">
+    <q-card>
+      <q-card-section>
+        <div class="text-h6">Alert</div>
+      </q-card-section>
+
+      <q-card-section class="q-pt-none">
+        Lorem ipsum dolor sit amet consectetur adipisicing elit. Rerum
+        repellendus sit voluptate voluptas eveniet porro. Rerum blanditiis
+        perferendis totam, ea at omnis vel numquam exercitationem aut, natus
+        minima, porro labore.
+      </q-card-section>
+
+      <q-card-actions align="right">
+        <q-btn
+          flat
+          label="Agregar Pedido"
+          color="primary"
+          @click="addData"
+          v-close-popup
+        />
+      </q-card-actions>
+    </q-card>
+  </q-dialog>
+
+  <!-- Algo -->
+  <q-dialog v-model="dialodetalle" persistent>
+    <q-card class="my-card">
+      <q-card-section class="q-pt-none q-pl-none q-pr-none">
+        <q-bar dark class="bg-primary text-white">
+          <div>Inclusión de los renglones del pedido</div>
+          <q-space></q-space>
+          <q-btn flat icon="close" round size="8.5px" v-close-popup />
+        </q-bar>
+        <div>Datos de el encabezado</div>
+      </q-card-section>
+      <q-card-section>
+        <FormPedido />
+        <ItemPedido />
+        <TablePage2 />
+      </q-card-section>
+    </q-card>
+  </q-dialog>
+
+  <div>
+    <q-dialog v-model="prender" persistent>
+      <q-card>
+        <q-card-section class="row items-center">
+          <q-avatar icon="signal_wifi_off" color="primary" text-color="white" />
+          <span class="q-ml-sm"
+            >You are currently not connected to any network.</span
+          >
+        </q-card-section>
+        <LinePedido
+          :pedido_id="line.pedido_id"
+          :numped="line.numped"
+          :emision="line.emision"
+          :codcli="line.codcli"
+          :nomcli="line.nomcli"
+          :correovdd="line.correovdd"
+          :comentario1="line.comentario1"
+          @additem="additem"
+        />
+
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" color="primary" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+  </div>
+
+  <!--  -->
+</template>
+
+<script setup>
+import { ref, nextTick, computed } from "vue";
+import LinePedido from "components/LinePedido.vue";
+import ItemPedido from "components/ItemPedido.vue";
+import FormPedido from "components/FormPedido.vue";
+import TablePage2 from "pages/TablaPage2.vue";
+import EncabezadoPedido from "components/InclusionPedido/EncabezadoPedido.vue";
+import RenglonesPedido from "components/InclusionPedido/RenglonesPedido.vue";
+import { usePedidoStore } from "stores/pedido-store";
+
+const pedido = usePedidoStore();
+const invoice_dialog = ref(false);
+const alert = ref(false);
+const nuevoPedido = ref(false);
+const prender = ref(false);
+const dialodetalle = ref(false);
+const numlinea = ref(0);
+const loading = false;
+const nextPage = 0;
+const lastPage = 1;
+const line = ref({
+  pedido_id: "",
+  numped: "",
+  emision: "",
+  codcli: "",
+  nomcli: "",
+  correovdd: "",
+  comentario1: "",
+});
+const columns = [
+  {
+    name: "Numped",
+    align: "left",
+    label: "Numero de Pedido",
+    field: "Numped",
+    sortable: true,
+  },
+  {
+    name: "Emision",
+    align: "left",
+    label: "Emision",
+    field: "Emision",
+    sortable: true,
+  },
+  {
+    name: "Cliente",
+    align: "left",
+    label: "Cliente",
+    field: "Cliente",
+    sortable: true,
+  },
+  {
+    name: "Nomcli",
+    align: "left",
+    label: "Nombre del cliente",
+    field: "Nomcli",
+    sortable: true,
+  },
+  {
+    name: "Nombre del Cliente",
+    align: "left",
+    label: "NOMBRE DEL CLIENTE",
+    field: "nomcli",
+    sortable: true,
+  },
+  {
+    name: "Comen1",
+    align: "left",
+    label: "Comentario",
+    field: "Comen1",
+    sortable: true,
+  },
+  {
+    name: "Comen2",
+    align: "left",
+    label: "Comentario segunda linea",
+    field: "Comen2",
+    sortable: true,
+  },
+];
+
+const rows = ref(pedido.pedidos);
+
+const linea = ref({
+  pedido_id: "188",
+  numped: "PED0088",
+  emision: "15/08/2024",
+  codcli: "00000388",
+  nomcli: "Gustavo Ochoa",
+  correovdd: "ochoocho@empresa.com",
+  comentario1: "Este es un comentario",
+});
+
+function onRowClick(evt, row, index) {
+  line.value.numero = row.pedido_id;
+  line.value.emision = row.emisionf;
+  line.value.nomcli = row.cliente;
+  line.value.total = row.totalp;
+  numlinea.value = index;
+  prender.value = true;
+}
+
+function onNumero(row, index) {
+  line.value.numero = row.pedido_id;
+  line.value.emision = row.emisionf;
+  line.value.nomcli = row.cliente;
+  line.value.total = row.totalp;
+  numlinea.value = index;
+  prender.value = true;
+}
+
+function modilinea(
+  pedido_id,
+  numped,
+  emision,
+  codcli,
+  nomcli,
+  correovdd,
+  comentario1
+) {
+  rows[numlinea.value].pedido_id = numero;
+  rows[numlinea.value].emisionf = emision;
+  rows[numlinea.value].cliente = nomcli;
+  rows[numlinea.value].totalp = total;
+  prender.value = false;
+}
+
+function veralgo() {
+  console.log("Promio veralgo");
+}
+
+function additem(
+  pedido_id,
+  numped,
+  emision,
+  codcli,
+  nomcli,
+  correovdd,
+  comentario1
+) {
+  let obj = {
+    pedido_id: pedido_id,
+    numped: numped,
+    emision: emision,
+    codcli: codcli,
+    nomcli: nomcli,
+    correovdd: correovdd,
+    comentario1: comentario1,
+  };
+  rows.value.push(obj);
+  console.log("rows:", rows);
+  prender.value = false;
+}
+
+function onScroll({ to, ref }) {
+  const lastIndex = rows.value.length - 1;
+
+  if (loading.value !== true && nextPage.value < lastPage && to === lastIndex) {
+    loading.value = true;
+
+    setTimeout(() => {
+      nextPage.value++;
+      nextTick(() => {
+        ref.refresh();
+        loading.value = false;
+      });
+    }, 500);
+  }
+}
+
+function addData() {
+  rows.value.push({
+    Numped: "PE00000XX",
+    Emision: pedido.pedidos.Emision,
+    Cliente: pedido.pedidos.Cliente,
+    Nomcli: pedido.pedidos.Nomcli,
+    Codven: "",
+    Comen1: "",
+    Comen2: "",
+    Estatus: "PE",
+    Entrega: "",
+  });
+}
+</script>
+
+<style lang="sass" scoped>
+.cuerpo-pedido
+  width: 80vW
+  max-width: 90vW
+  height: 90vh
+
+.my-card
+  width: 65vW
+  max-width: 70vW
+
+.my-sticky-dynamic
+  /* height or max-height is important */
+  height: 610px
+  width: 1200px
+
+  .q-table__top,
+  .q-table__bottom,
+  thead tr:first-child th /* bg color is important for th; just specify one */
+    background-color: #00b4ff
+
+  thead tr th
+    position: sticky
+    z-index: 1
+  /* this will be the loading indicator */
+  thead tr:last-child th
+    /* height of all previous header rows */
+    top: 48px
+  thead tr:first-child th
+    top: 0
+
+  /* prevent scrolling behind sticky top row on focus */
+  tbody
+    /* height of all previous header rows */
+    scroll-margin-top: 48px
+</style>
