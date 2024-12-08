@@ -5,10 +5,6 @@ const routes = [
     children: [
       { path: "/", redirect: "/login" },
       { path: "login", component: () => import("src/pages/LoginPage.vue") },
-      {
-        path: "register",
-        component: () => import("src/pages/RegisterPage.vue"),
-      },
     ],
     meta: { auth: false },
   },
